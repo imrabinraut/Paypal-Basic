@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayPal Integration</title>
+    <script
+        src="https://www.paypal.com/sdk/js?client-id=ASByZeatyIFvwq_Je8eAMv06O1i52SpCIs6cO2kkn5aPF82hhURuHeTvbRTfHv6JkI_DA66CVuI9-O6x"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .row {
+            margin: 0 auto;
+            max-width: 800px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .table img {
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .sum-row {
+            font-weight: bold;
+            background-color: #e9ecef;
+        }
+
+        .button-container {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        .submit-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #0056b3;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .submit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        @media (max-width: 600px) {
+
+            .table th,
+            .table td {
+                font-size: 14px;
+                padding: 10px;
+            }
+
+            .submit-btn {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Cart</h1>
+    <div class="row">
+        <div class="col-md-12">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Name</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>SubTotal</th>
+                    </tr>
+                </thead>
+                <tbody id="myTable">
+                    <tr>
+                        <td><img src="MacBookProM3.jpeg" asp-append-version="true" width="50" height="50"
+                                alt="MacBook Pro M3" /></td>
+                        <td>MacBook Pro M3</td>
+                        <td>$1</td>
+                        <td>1</td>
+                        <td>$1</td>
+                    </tr>
+                    <tr class="sum-row">
+                        <td align="right" colspan="4">Sum</td>
+                        <td>$1</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="button-container">
+                <div class="submit-btn" id="paypal-button-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateReference() {
+            return `REF-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        }
+
+        const reference = generateReference();
+
+        paypal.Buttons({
+            style: {
+                layout: 'vertical',
+                color: 'silver',
+                tagline: false
+            },
+            createOrder: async (data, actions) => {
+                try {
+                    const response = await fetch('http://localhost:5086/api/create-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            Value: "1",
+                            Currency: "USD",
+                            Reference: reference,
+                            ReturnUrl: "http://127.0.0.1:5500/client/success.html",
+                            CancelUrl: "http://127.0.0.1:5500/client/cancel.html"
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to create order');
+
+                    const orderData = await response.json();
+                    return orderData.id;
+                } catch (error) {
+                    console.error('Order creation error:', error);
+                }
+            },
+            onApprove: async (data, actions) => {
+                try {
+                    const response = await fetch(`http://localhost:5086/api/capture-order/${data.orderID}`, {
+                        method: 'POST'
+                    });
+
+                    if (!response.ok) throw new Error('Failed to capture order');
+
+                    window.location.href = "http://127.0.0.1:5500/client/success.html";
+                    // window.location.href = `/api/success?reference=${reference}&&orderId=${data.orderID}`;
+                } catch (error) {
+                    console.error('Order capture error:', error);
+                }
+            },
+            onCancel: () => {
+                window.location.href = "http://127.0.0.1:5500/client/cancel.html";
+                // window.location.href = `/api/cancel?reference=${reference}&&orderId=${data.orderID}`;
+            },
+            onError: (err) => {
+                console.error('An error occurred during the transaction', err);
+            }
+        }).render('#paypal-button-container');
+    </script>
+</body>
+
+</html>
